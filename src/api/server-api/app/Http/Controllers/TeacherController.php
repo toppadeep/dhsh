@@ -11,11 +11,7 @@ use Illuminate\Http\Request;
 class TeacherController extends Controller
 {
 
-    public function __construct()
-    {
-        $this->middleware('auth')->except(['index', 'show', 'showCource']); // Использовать посредник для всех методов, кроме ....
-        $this->middleware('admin')->only('destroy'); // Использовать посредник только для одного метода
-    }
+
 
     /**
      * Display a listing of the resource.
@@ -24,9 +20,9 @@ class TeacherController extends Controller
      */
     public function index()
     {
-        $teacher = Teacher::all();
-        $teacher = TeacherResource::collection($teacher);
-        return response()->json($teacher);
+        $teachers = Teacher::all();
+        $teachers = TeacherResource::collection($teachers);
+        return response()->json($teachers);
     }
 
     /**
@@ -39,30 +35,51 @@ class TeacherController extends Controller
     {
         if ($request->hasFile('avatar')) {
             $imageName = time() . '.' . $request->avatar->getClientOriginalExtension(); // Создаем имя для картинки
-            $imagePath = $request->avatar->move('uploads/teachers', $imageName); // Создаем путь для картинки
+            $imagePath = $request->avatar->move('teacher/images', $imageName); // Создаем путь для картинки
             $imageFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $imagePath); // Создали абсолютный путь для картинки
         }else {
             $imageFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', 'uploads/teachers/default.png');
         }
-        $fileFullPath = [];
-        foreach ($request->file('files') as $file) {
-            $fileName = $file->getClientOriginalName();
-            $filePath = $file->move('uploads/teacherImages', $fileName);
-            $fileFullPath[] =  [
-                'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/',  $filePath),
-            ];
+
+        $images = [];
+        if ($request->file('images')) {
+            foreach ($request->file('images') as $file) {
+                $imageName = $file->getClientOriginalName();
+                $imagePath = $file->move('teachers/images', $imageName);
+                $images[] =  [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/',  $imagePath),
+                ];
+            }
         }
 
-        $teacher = Teacher::create([
+        $documents = [];
+        if ($request->file('documents')) {
+            foreach ($request->file('documents') as $file) {
+                $documentSize =  $file->getSize();
+                $documentSizeFull = round($documentSize,1) . ' ' . 'mb';
+                $documentExtension = $file->getClientOriginalExtension();
+                $documentName =  $file->getClientOriginalName();
+                $documentPath = $file->move('teachers/documents', $documentName); // Создаем путь для документа
+                $documents[] = [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $documentPath),
+                    'size' => $documentSizeFull,
+                    'extension' =>  $documentExtension,
+                    'name' => $documentName
+                ];
+            }
+        }
+
+        Teacher::create([
             "name" => $request->name,
             "description" => $request->description,
             "role" => $request->role,
             "education" => $request->education,
-            "files" =>  json_encode($fileFullPath, true),
+            "images" =>  json_encode($images, true),
+            "documents" =>  json_encode($documents, true),
             "avatar" => $imageFullPath,
         ]);
 
-        return response()->json(["code" => 201, "message" => "Учитель успешно создан" ,$teacher]);
+        return response()->json(["status" => true, "message" => "Учитель успешно создан"]);
     }
 
     /**
@@ -75,7 +92,7 @@ class TeacherController extends Controller
     {
         $teacher = Teacher::find($id);
         if (!$teacher) {
-            return response()->json(["status" => false, "message" => "teacher not found"], 404);
+            return response()->json(["status" => false, "message" => "Учитель не найден"], 404);
         }
 
         return response()->json([$teacher]);
@@ -92,14 +109,47 @@ class TeacherController extends Controller
     {
         $teacher = Teacher::find($id);
         if (!$teacher) {
-            return response()->json(["status" => false, "message" => "teacher not found"], 404);
+            return response()->json(["status" => false, "message" => "Учитель не найден"], 404);
         }
 
-        $imageFullPath = "";
         if ($request->hasFile('avatar')) {
             $imageName = time() . '.' . $request->avatar->getClientOriginalExtension(); // Создаем имя для картинки
-            $imagePath = $request->avatar->move('uploads', $imageName); // Создаем путь для картинки
+            $imagePath = $request->avatar->move('teachers/images', $imageName); // Создаем путь для картинки
             $imageFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $imagePath); // Создали абсолютный путь для картинки
+        }else {
+            $imageFullPath = Teacher::find($id)->avatar;
+        }
+
+        if ($request->file('images')) {
+            foreach ($request->file('images') as $file) {
+                $imageName = $file->getClientOriginalName();
+                $imagePath = $file->move('posts/images', $imageName);
+                $images[] =  [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/',  $imagePath),
+                ];
+            }
+        }else {
+            $oldFiles = json_decode(Teacher::find($id)->images, true);
+            $images =  $oldFiles;
+        }
+
+        if ($request->file('documents')) {
+            foreach ($request->file('documents') as $file) {
+                $documentSize =  $file->getSize();
+                $documentSizeFull = round($documentSize,1) . ' ' . 'mb';
+                $documentExtension = $file->getClientOriginalExtension();
+                $documentName =  $file->getClientOriginalName();
+                $documentPath = $file->move('posts/documents', $documentName); // Создаем путь для документа
+                $documents[] = [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $documentPath),
+                    'size' => $documentSizeFull,
+                    'extension' =>  $documentExtension,
+                    'name' => $documentName
+                ];
+            }
+        }else {
+            $oldFiles = json_decode(Teacher::find($id)->documents, true);;
+            $documents =  $oldFiles;
         }
 
         $teacher->update([
@@ -107,10 +157,12 @@ class TeacherController extends Controller
             "description" => $request->description,
             "role"=> $request->role,
             "education" => $request->education,
+            "images" =>  json_encode($images, true),
+            "documents" =>  json_encode($documents, true),
             "avatar" =>  $imageFullPath,
         ]);
 
-        return response()->json(["status" => true, "message" => "teacher updated", 'teacher' => $teacher]);
+        return response()->json(["status" => true, "message" => "Обновлено"]);
     }
 
     /**
@@ -123,12 +175,12 @@ class TeacherController extends Controller
     {
         $teacher = Teacher::find($id);
         if (!$teacher) {
-            return response()->json(["status" => false, "message" => "Teacher has`t delete"]);
+            return response()->json(["status" => false, "message" => "Учитель не найден"]);
         }
 
         $teacher->delete();
 
-        return response()->json(["status" => true, "message" => "Teacher has be deleted"]);
+        return response()->json(["status" => true, "message" => "Учитель успешно удалён"]);
     }
 
     /**
@@ -145,15 +197,6 @@ class TeacherController extends Controller
             return response()->json(["status" => false, "message" => "Связанных курсов не найдено"]);
         }
         return response()->json($cource);
-    }
-
-    public function teacherCount()
-    {
-        $teacherCount = Teacher::all()->count();
-        if (!$teacherCount) {
-            return response()->json(0);
-        }
-        return response()->json($teacherCount);
     }
 
 }

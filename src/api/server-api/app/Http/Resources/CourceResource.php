@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Models\CourceTeacher;
 use App\Models\Teacher;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Str;
 
 class CourceResource extends JsonResource
 {
@@ -16,13 +17,19 @@ class CourceResource extends JsonResource
      */
     public function toArray($request)
     {
+
+        $course_slug = urldecode( Str::slug($this->title) );
+        $course_slug = preg_replace('/([^a-z\d\-\_])/', '', $course_slug);
+
         return [
             "id" => $this->id,
             "title" => $this->title,
             "body" => $this->body,
-            "image" => $this->image,
+            "cover" => $this->cover,
+            "images" => json_decode($this->images, true),
+            "documents" => json_decode($this->documents, true),
             "payment" => $this->payment,
-            "teachers" => CourceTeacher::find($this->teacher_id),
+            "slug" => $course_slug,
         ];
     }
 }

@@ -18,7 +18,7 @@ class CreateUsersTable extends Migration
             $table->string('name');
             $table->string('login')->unique();
             $table->string('password');
-            $table->string('avatar')->default('http://127.0.0.1:8000/uploads/example.png');
+            $table->string('avatar');
             $table->integer('status')->default(1);
             $table->string('token')->nullable();
         });

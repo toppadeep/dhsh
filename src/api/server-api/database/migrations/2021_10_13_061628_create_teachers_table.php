@@ -19,8 +19,9 @@ class CreateTeachersTable extends Migration
             $table->string('description');
             $table->string('role');
             $table->string('education');
-            $table->json('files')->nullable();
-            $table->string('avatar')->default('http://127.0.0.1:8000/uploads/example.png')->nullable(false);
+            $table->json('images')->nullable();
+            $table->json('documents')->nullable();
+            $table->string('avatar');
         });
     }
 

@@ -4,17 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CourceRequest;
 use App\Http\Resources\CourceResource;
+use App\Models\Category;
 use App\Models\Cource;
 use Illuminate\Http\Request;
+/* public function __construct()
+    {
+        $this->middleware('auth')->except('index'); // Использовать посредник для всех методов, кроме ....
+        $this->middleware('admin')->only('destroy'); // Использовать посредник только для одного метода
+    } */
 
 class CourceController extends Controller
 {
 
-    public function __construct()
-    {
-        $this->middleware('auth')->except('index'); // Использовать посредник для всех методов, кроме ....
-        $this->middleware('admin')->only('destroy'); // Использовать посредник только для одного метода
-    }
 
     /**
      * Display a listing of the resource.
@@ -23,9 +24,9 @@ class CourceController extends Controller
      */
     public function index()
     {
-        $cources = Cource::all();
-        $cources = CourceResource::collection($cources);
-        return response()->json($cources);
+        $courses = Cource::all();
+        $courses = CourceResource::collection($courses);
+        return response()->json($courses);
     }
 
     /**
@@ -36,18 +37,46 @@ class CourceController extends Controller
      */
     public function store(CourceRequest $request)
     {
-        $imageName = time() . '.' . $request->image->getClientOriginalExtension(); // Создаем имя для картинки
-        $imagePath = $request->image->move('uploads/cources', $imageName); // Создаем путь для картинки
-        $imageFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $imagePath);
+        $coverName = $request->file('cover')->getClientOriginalName();
+        $coverPath = $request->file('cover')->move('courses/images', $coverName);
+        $coverFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $coverPath);
+        $images = [];
+        if ($request->file('images')) {
+            foreach ($request->file('images') as $file) {
+                $imageName = $file->getClientOriginalName();
+                $imagePath = $file->move('courses/images', $imageName);
+                $images[] =  [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/',  $imagePath),
+                ];
+            }
+        }
+        $documents = [];
+        if ($request->file('documents')) {
+            foreach ($request->file('documents') as $file) {
+                $documentSize =  $file->getSize();
+                $documentSizeFull = round($documentSize,1) . ' ' . 'mb';
+                $documentExtension = $file->getClientOriginalExtension();
+                $documentName =  $file->getClientOriginalName();
+                $documentPath = $file->move('courses/documents', $documentName); // Создаем путь для документа
+                $documents[] = [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $documentPath),
+                    'size' => $documentSizeFull,
+                    'extension' =>  $documentExtension,
+                    'name' => $documentName
+                ];
+            }
+        }
 
-        $cource = Cource::create([
+        Cource::create([
             "title" => $request->title,
             "body" => $request->body,
+            "cover" =>  $coverFullPath,
+            "images" =>  json_encode($images, true),
+            "documents" =>  json_encode($documents, true),
             "payment"=> $request->payment,
-            "image" =>  $imageFullPath,
         ]);
 
-        return response()->json($cource);
+        return response()->json(['status' => true, 'message' => 'Курс успешно добавлен']);
     }
 
     /**
@@ -60,7 +89,7 @@ class CourceController extends Controller
     {
         $cource = Cource::find($id);
         if (!$cource) {
-            return response()->json(["status" => false, "message" => "Cource not found"], 404);
+            return response()->json(["status" => false, "message" => "Курс не найден"], 404);
         }
 
         $cource = new CourceResource($cource);
@@ -79,24 +108,59 @@ class CourceController extends Controller
     {
         $cource = Cource::find($id);
         if (!$cource) {
-            return response()->json(["status" => false, "message" => "cource not found"], 404);
+            return response()->json(["status" => false, "message" => "Курс не найден"], 404);
         }
-        $imageFullPath = "";
 
-        if ($request->hasFile('image')) {
-            $imageName = time() . '.' . $request->image->getClientOriginalExtension(); // Создаем имя для картинки
-            $imagePath = $request->image->move('uploads', $imageName); // Создаем путь для картинки
-            $imageFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $imagePath); // Создали абсолютный путь для картинки
+        if ($request->hasFile('cover')) {
+            $coverName = time() . '.' . $request->cover->getClientOriginalExtension();
+            $coverPath = $request->cover->move('courses/images', $coverName);
+            $coverFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $coverPath);
+        }else {
+            $coverFullPath = Cource::find($id)->cover;
+        }
+
+        if ($request->file('images')) {
+            foreach ($request->file('images') as $file) {
+                $imageName = $file->getClientOriginalName();
+                $imagePath = $file->move('courses/images', $imageName);
+                $images[] =  [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/',  $imagePath),
+                ];
+            }
+        }else {
+            $oldFiles = json_decode(Cource::find($id)->images, true);
+            $images =  $oldFiles;
+        }
+
+        if ($request->file('documents')) {
+            foreach ($request->file('documents') as $file) {
+                $documentSize =  $file->getSize();
+                $documentSizeFull = round($documentSize,1) . ' ' . 'mb';
+                $documentExtension = $file->getClientOriginalExtension();
+                $documentName =  $file->getClientOriginalName();
+                $documentPath = $file->move('courses/documents', $documentName); // Создаем путь для документа
+                $documents[] = [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $documentPath),
+                    'size' => $documentSizeFull,
+                    'extension' =>  $documentExtension,
+                    'name' => $documentName
+                ];
+            }
+        }else {
+            $oldFiles = Cource::find($id)->documents;
+            $documents =  $oldFiles;
         }
 
         $cource->update([
             "title" => $request->title,
             "body" => $request->body,
-            "image" => $imageFullPath,
+            "cover" =>  $coverFullPath,
+            "images" =>  json_encode($images, true),
+            "documents" =>  json_encode($documents, true),
             "payment" => $request->payment
         ]);
 
-        return response()->json(["status" => true, "message" => "Cource updated", 'cource' => $cource]);
+        return response()->json(["status" => true, "message" => "Курс успешно обновлён"]);
     }
 
     /**
@@ -110,21 +174,12 @@ class CourceController extends Controller
         $cource = Cource::find($id);
 
         if (!$cource) {
-            return response()->json(["status" => false, "message" => "Cource has`t delete"]);
+            return response()->json(["status" => false, "message" => "Курс не найден"]);
         }
 
         $cource->delete();
 
-        return response()->json(["status" => true, "message" => "Cource has be deleted", "Удалённый курс"=>$cource->id]);
-    }
-
-    public function courceCount()
-    {
-        $courceCount = Cource::all()->count();
-        if (!$courceCount) {
-            return response()->json(0);
-        }
-        return response()->json($courceCount);
+        return response()->json(["status" => true, "message" => "Курс успешно удалён"]);
     }
 
 }

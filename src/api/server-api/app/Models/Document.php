@@ -12,6 +12,6 @@ class Document extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'title', 'filesize', 'filetype', 'image', 'document'
+        'title', 'filesize', 'filetype', 'document', 'category'
     ];
 }

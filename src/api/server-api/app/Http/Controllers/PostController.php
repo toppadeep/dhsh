@@ -8,15 +8,12 @@ use App\Models\User;
 use App\Models\Post;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Str;
 
 class PostController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware('auth')->except('index', 'show');
-        $this->middleware('admin')->only('destroy');
-        $this->middleware('cors')->except('index', 'show');
-    }
+
 
     /**
      * Display a listing of the resource.
@@ -25,8 +22,7 @@ class PostController extends Controller
      */
     public function index()
     {
-        $posts = Post::all();
-        $posts = PostResource::collection($posts);
+        $posts = PostResource::collection(Post::all());
         return response()->json($posts);
     }
 
@@ -39,55 +35,75 @@ class PostController extends Controller
     public function store(PostStoreRequest $request)
     {
         $imageName = time() . '.' . $request->file('cover')->getClientOriginalExtension(); // Создаем имя для картинки
-        $imagePath = $request->file('cover')->move('uploads/coverPosts', $imageName); // Создаем путь для картинки
+        $imagePath = $request->file('cover')->move('posts/images', $imageName); // Создаем путь для картинки
         $imageFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $imagePath); // Со
-        $fileFullPath = [];
-        foreach ($request->file('files') as $file) {
-            $fileName = $file->getClientOriginalName();
-            $filePath = $file->move('uploads/postImages', $fileName);
-            $fileFullPath[] =  [
-                'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/',  $filePath),
-            ];
+
+        $images = [];
+        if ($request->file('images')) {
+            foreach ($request->file('images') as $file) {
+                $imageName = $file->getClientOriginalName();
+                $imagePath = $file->move('posts/images', $imageName);
+                $images[] =  [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/',  $imagePath),
+                ];
+            }
         }
+
+        $documents = [];
+        if ($request->file('documents')) {
+            foreach ($request->file('documents') as $file) {
+                $documentSize =  $file->getSize();
+                $documentSizeFull = round($documentSize,1) . ' ' . 'mb';
+                $documentExtension = $file->getClientOriginalExtension();
+                $documentName =  $file->getClientOriginalName();
+                $documentPath = $file->move('posts/documents', $documentName); // Создаем путь для документа
+                $documents[] = [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $documentPath),
+                    'size' => $documentSizeFull,
+                    'extension' =>  $documentExtension,
+                    'name' => $documentName
+                ];
+            }
+        }
+
         $date = Carbon::now();
-        $year = $date->year;
-        $month = $date->month;
-        $day = $date->day;
-        $hour = $date->hour + 7;
-        $minute = $date->minute;
-        $second = $date->second;
-        $date = Carbon::create($year, $month, $day, $hour, $minute, $second);
+        $date = $date->locale('ru')->isoFormat('D MMMM, YYYY');
 
         $user = User::where('token', $request->bearerToken())->first();
         $user_id = $user->id;
 
-        $post = Post::create([
+        $post_slug = urldecode( Str::slug($request->title) );
+        $post_slug = preg_replace('/([^a-z\d\-\_])/', '', $post_slug);
+
+        Post::create([
             "title" => $request->title,
             "body" => $request->body,
             "subtitle" => $request->subtitle,
             "cover" => $imageFullPath,
-            "files" =>  json_encode($fileFullPath, true),
+            "images" =>  json_encode($images, true),
+            "documents" =>  json_encode($documents, true),
             "date" => $date,
             "user_id" => $user_id,
+            "slug" => $post_slug,
             "category_id" => $request->category_id,
         ]);
 
-        return response()->json(["code" => 201, "message" => "Пост успешно создан" ,$post, $post->files]);
+        return response()->json(["status" => true, "message" => "Пост успешно создан"]);
     }
 
     /**
      * Display the specified resource.
      *
-     * @param  int  $id
+     * @param  Str  $slug
      * @return \Illuminate\Http\JsonResponse
      */
-    public function show($id)
+    public function show($slug)
     {
-        $post = Post::find($id); // Ищем пост по id
-        if (!$post) {
-            return response()->json(["status" => false, "message" => "Post not found"], 404);
-        }
+        $post = new PostResource(Post::where('slug', $slug)->first()); // Ищем пост по slug
 
+        if (!$post) {
+            return response()->json(["status" => false, "message" => "Пост не найдён"], 404);
+        }
         return response()->json($post);
     }
 
@@ -102,33 +118,68 @@ class PostController extends Controller
     {
         $post = Post::find($id);
         if (!$post) {
-            return response()->json(["status" => false, "message" => "Post not found"], 404);
+            return response()->json(["status" => false, "message" => "Пост не найден"], 404);
         }
 
         $user = User::where('token', $request->bearerToken())->first();
-        if ($post->user_id !== $user->id) {
-            return response()->json(["status" => false, "message" => "Access denied"], 401);
+        if (!$user) {
+            return response()->json(["status" => false, "message" => "Токен запроса недействителен"]);
+        }elseif ($post->user_id !== $user->id) {
+            return response()->json(["status" => false, "message" => "Доступ запрещён"], 401);
         }
 
 
-        $coverFullPath = "";
         if ($request->hasFile('cover')) {
             $coverName = time() . '.' . $request->cover->getClientOriginalExtension();
-            $coverPath = $request->cover->move('uploads/coverPost', $coverName);
+            $coverPath = $request->cover->move('posts/images', $coverName);
             $coverFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $coverPath);
+        }else {
+            $coverFullPath = Post::find($id)->cover;
         }
 
+        if ($request->file('images')) {
+            foreach ($request->file('images') as $file) {
+                $imageName = $file->getClientOriginalName();
+                $imagePath = $file->move('posts/images', $imageName);
+                $images[] =  [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/',  $imagePath),
+                ];
+            }
+        }else {
+            $oldFiles = json_decode(Post::find($id)->images, true);
+            $images =  $oldFiles;
+        }
+
+        if ($request->file('documents')) {
+            foreach ($request->file('documents') as $file) {
+                $documentSize =  $file->getSize();
+                $documentSizeFull = round($documentSize,1) . ' ' . 'mb';
+                $documentExtension = $file->getClientOriginalExtension();
+                $documentName =  $file->getClientOriginalName();
+                $documentPath = $file->move('posts/documents', $documentName); // Создаем путь для документа
+                $documents[] = [
+                    'path' => 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $documentPath),
+                    'size' => $documentSizeFull,
+                    'extension' =>  $documentExtension,
+                    'name' => $documentName
+                ];
+            }
+        }else {
+            $oldFiles = Post::find($id)->documents;
+            $documents =  $oldFiles;
+        }
 
         $post->update([
             "title" => $request->title,
             "subtitle" => $request->subtitle,
             "body" => $request->body,
-            "cover" => $coverFullPath,
-            "images" => $imageFullPath,
+            "cover" =>  $coverFullPath,
+            "images" =>  json_encode($images, true),
+            "documents" =>  json_encode($documents, true),
             "category_id" => $request->category_id,
         ]);
 
-        return response()->json(["code" => 201, "message" => "Пост успешно обновлён" ,$post]);
+        return response()->json(["status" => true, "message" => "Пост успешно обновлён"]);
     }
 
     /**
@@ -141,30 +192,12 @@ class PostController extends Controller
     {
         $post = Post::find($id);
         if (!$post) {
-            return response()->json(["status" => false, "message" => "Post not found"], 404);
+            return response()->json(["status" => false, "message" => "Пост не найден"], 404);
         }
 
         $post->delete();
 
-        return response()->json(["status" => true]);
-    }
-
-    public function postCount()
-    {
-        $postCount = Post::all()->count('id');
-        if (!$postCount) {
-            return response()->json(0);
-        }
-        return response()->json($postCount);
-    }
-
-    public function counterViewed($id) {
-        $post = Post::find($id);
-
-        if($post) {
-            $post = $post->viewed + 1;
-            $post->save();
-        }
+        return response()->json(["status" => true, "message" => "Пост удалён"]);
     }
 
 }

@@ -19,9 +19,12 @@ class CreatePostsTable extends Migration
             $table->string('subtitle');
             $table->text('body');
             $table->string('cover');
-            $table->json('files')->nullable();
-            $table->dateTime('date');
+            $table->json('images')->nullable();
+            $table->json('documents')->nullable();
+            $table->string('date');
+            $table->string('slug');
             $table->integer('viewed')->nullable();
+            $table->integer('isBookmark')->default(false);
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('category_id');
 

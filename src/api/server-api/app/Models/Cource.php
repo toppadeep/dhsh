@@ -13,12 +13,15 @@ class Cource extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'title', 'body', 'image', 'payment',
+        'title', 'body', 'cover', 'images', 'documents', 'payment',
     ];
-
+    protected $cast=[
+        'images' => 'array',
+        'documents' => 'array'
+    ];
     public function teachers()
     {
-        return $this->hasMany(CourceTeacher::class);
+        return $this->belongsToMany(CourceTeacher::class);
     }
 
 

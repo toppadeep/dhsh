@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\User;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class UserResource extends JsonResource
@@ -14,6 +15,18 @@ class UserResource extends JsonResource
      */
     public function toArray($request)
     {
-        return parent::toArray($request);
+
+        $user = User::find($this->id);
+        $posts = $user->posts()->get();
+
+        return [
+            "id" => $this->id,
+            "name" => $this->name,
+            "login" => $this->login,
+            "favorites" => $posts,
+            "avatar" => $this->avatar,
+            "status" => $this->status,
+            "token" => $this->token
+        ];
     }
 }

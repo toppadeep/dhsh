@@ -26,7 +26,7 @@ class CourceRequest extends SendErrorsRequest
         return [
             "title" => ['required'],
             "body" => ['required'],
-            "image" => ['mimes:png,jpeg,bmp,mp4'],
+            "cover" => ['required'],
             "payment" => ['required']
         ];
     }

@@ -18,8 +18,8 @@ class CreateDocumentsTable extends Migration
             $table->string('title');
             $table->string('filetype');
             $table->string('filesize');
-            $table->string('image')->default('http://127.0.0.1:8000/uploads/example.png');
             $table->string('document');
+            $table->string('category');
         });
     }
 

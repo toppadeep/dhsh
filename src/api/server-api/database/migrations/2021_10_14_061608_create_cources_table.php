@@ -17,7 +17,9 @@ class CreateCourcesTable extends Migration
             $table->bigIncrements('id');
             $table->string('title');
             $table->string('body');
-            $table->string('image')->default('http://127.0.0.1:8000/uploads/example.png');
+            $table->string('cover');
+            $table->json('images')->nullable();
+            $table->json('documents')->nullable();
             $table->string('payment')->default('Бесплатно');
         });
     }

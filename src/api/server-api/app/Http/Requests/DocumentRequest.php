@@ -14,9 +14,7 @@ class DocumentRequest extends SendErrorsRequest
     public function rules()
     {
         return [
-            'title' => ['required'],
-            'image' => ['image', 'mimes:png,jpeg,bmp', 'max:2048'],
-            'document' => ['file', 'mimes:xlsx,txt,docx']
+            'document' => ['required','max:204800']
         ];
     }
 }

@@ -3,17 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\DocumentRequest;
+use App\Http\Resources\DocumentResource;
 use App\Models\Document;
 use Illuminate\Http\Request;
 
 class DocumentController extends Controller
 {
 
-    public function __construct()
-    {
-        $this->middleware('auth')->except(['index', 'show']); // Использовать посредник для всех методов, кроме ....
-        $this->middleware('admin')->only('destroy'); // Использовать посредник только для одного метода
-    }
+
 
     /**
      * Display a listing of the resource.
@@ -23,13 +20,8 @@ class DocumentController extends Controller
     public function index()
     {
         $documents = Document::all();
-
-        if (!$documents) {
-            return response()->json(["status" => false, "message" => 'Document not found']);
-        }
-
-        return response()->json(["status" => true, "message" => $documents]);
-
+        $documents = DocumentResource::collection($documents);
+        return response()->json($documents);
     }
 
     /**
@@ -40,26 +32,26 @@ class DocumentController extends Controller
      */
     public function store(DocumentRequest $request)
     {
-        $imageName = time() . '.' . $request->image->getClientOriginalExtension(); // Создаем имя для картинки
-        $imagePath = $request->image->move('uploads', $imageName); // Создаем путь для картинки
-        $imageFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $imagePath);
-        $documentSize = $request->document->getSize();
-        $documentSizeFull = round($documentSize,1) . ' ' . 'mb';
-        $documentExtension = $request->document->getClientOriginalExtension();
-        $documentName = $request->title . '.' . $documentExtension;
-        $documentPath = $request->document->move('documents', $documentName); // Создаем путь для документа
-        $document = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $documentPath);
 
-        $document = Document::create([
-            "title" => $request->title,
-            "filesize" => $documentSizeFull,
-            "filetype" =>  $documentExtension,
-            "image" => $imageFullPath,
-            "document" => $document,
-        ]);
+        if($request->file('document')) {
+            foreach ($request->file('document') as $file) {
+                $documentSize =  $file->getSize();
+                $documentSizeFull = round(($documentSize / 1024) / 1024,2) . ' ' . 'mb';
+                $documentExtension = $file->getClientOriginalExtension();
+                $documentName =  $file->getClientOriginalName();
+                $documentPath = $file->move('document', $documentName); // Создаем путь для документа
+                $document = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $documentPath);
+                Document::create([
+                    "title" => $documentName,
+                    "filesize" => $documentSizeFull,
+                    "filetype" =>  $documentExtension,
+                    "document" => $document,
+                    "category" => $request->category,
+                ]);
+            }
+        }
 
-
-        return response()->json(["status" => true, "document" => $document], 201);
+        return response()->json(["status" => true, "message" => 'Документ успешно добавлен']);
     }
 
     /**
@@ -94,31 +86,23 @@ class DocumentController extends Controller
             return response()->json(["status" => false, "message" => "Document not found"], 404);
         }
 
-        $imageFullPath = "";
-        if ($request->hasFile('image')) {
-            $imageName = time() . '.' . $request->image->getClientOriginalExtension(); // Создаем имя для картинки
-            $imagePath = $request->image->move('uploads', $imageName); // Создаем путь для картинки
-            $imageFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $imagePath); // Создали абсолютный путь для картинки
-        }
-
         if ($request->hasFile('document')) {
-            $documentSize = $request->document->getSize();
+            $documentSize = $request->file('document')->getSize();
             $documentSizeFull = round($documentSize,1) . ' ' . 'mb';
-            $documentExtension = $request->document->getClientOriginalExtension();
-            $documentName = $request->title . '.' . $documentExtension;
+            $documentExtension = $request->file('document')->getClientOriginalExtension();
+            $documentName =  $request->file('document')->getClientOriginalName() . '.' . $documentExtension;
             $documentPath = $request->document->move('documents', $documentName); // Создаем путь для документа
             $documentFullPath = 'http://' . $request->getHost() . ':' . $request->getPort() . '/' . str_replace('\\', '/', $documentPath);
         }
 
         $document->update([
-            "title" => $request->title,
+            "title" => $documentName,
             "filesize" => $documentSizeFull,
             "filetype" => $documentExtension,
-            "image" => $imageFullPath,
             "document" => $documentFullPath,
         ]);
 
-        return response()->json(["status" => true, "message" => "Document updated", 'document' => $document]);
+        return response()->json(["status" => true, "message" => $document]);
     }
 
     /**
@@ -136,16 +120,6 @@ class DocumentController extends Controller
 
         $document->delete();
 
-        return response()->json(["status" => true, "message" => "Document has be deleted"]);
+        return response()->json(["status" => true, "message" => "Документ удалён"]);
     }
-
-    public function documentCount()
-    {
-        $documentCount = Document::all()->count();
-        if (!$documentCount) {
-            return response()->json(0);
-        }
-        return response()->json($documentCount);
-    }
-
 }

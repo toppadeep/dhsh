@@ -12,15 +12,16 @@ class Teacher extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'name', 'description', 'role', 'education', 'files', 'avatar'
+        'name', 'description', 'role', 'education', 'images', 'documents', 'avatar'
     ];
 
     protected $cast=[
-        'files' => 'array'
+        'images' => 'array',
+        'documents' => 'array'
     ];
 
     public function cources()
     {
-        return $this->belongsToMany(CourceTeacher::class, 'cource_id');
+        return $this->belongsToMany(CourceTeacher::class);
     }
 }

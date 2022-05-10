@@ -13,6 +13,15 @@ class User extends Model
 
     // Даем разрешение на заполнение полей
     protected $fillable = [
-        'name', 'login', 'password', 'avatar'
+        'id', 'name', 'login', 'password', 'avatar'
     ];
+
+    protected $hidden = [
+        'token', 'password', 'name'
+    ];
+
+    public function posts()
+    {
+        return $this->belongsToMany(Post::class);
+    }
 }

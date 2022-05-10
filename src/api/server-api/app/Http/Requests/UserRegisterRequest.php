@@ -18,7 +18,7 @@ class UserRegisterRequest extends SendErrorsRequest
             'name' => ['required'],
             'login' => ['required', 'unique:users'],
             'password' => ['required', 'min:8', 'confirmed'],
-            'avatar' => ['required', 'image', 'mimes:png,jpeg,bmp', 'max:2048']
+            'avatar' => ['image', 'mimes:png,jpeg,bmp', 'max:2048']
         ];
     }
 }

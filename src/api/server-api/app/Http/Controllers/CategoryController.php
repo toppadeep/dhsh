@@ -3,26 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CategoryRequest;
+use App\Http\Resources\CategoryResource;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
-class CategoryController extends Controller
-{
-
-    public function __construct()
+/*  public function __construct()
     {
         $this->middleware('auth')->except(['index', 'show']); // Использовать посредник для всех методов, кроме ....
         $this->middleware('admin')->except('index', 'show'); // Использовать посредник только для одного метода
-    }
+    }  */
 
+class CategoryController extends Controller
+{
     /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\Response
      */
+
     public function index()
     {
         $categories = Category::all();
+        $categories = CategoryResource::collection($categories);
         return response()->json($categories);
     }
 
@@ -34,27 +37,30 @@ class CategoryController extends Controller
      */
     public function store(CategoryRequest $request)
     {
-        $category = Category::create([
+        $category_slug = urldecode( Str::slug($request->name) );
+        $category_slug = preg_replace('/([^a-z\d\-\_])/', '', $category_slug);
+
+        Category::create([
             "name" => $request->name,
+            "slug" => $category_slug
         ]);
 
-        return response()->json($category);
+        return response()->json(['status' => true, 'message' => 'Категория успешно создана']);
     }
 
     /**
      * Display the specified resource.
      *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * @param  Str  $slug
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function show($id)
+    public function show($slug)
     {
-        $category = Category::find($id);
+        $category = new CategoryResource(Category::where('slug', $slug)->first());
 
         if (!$category) {
-            return response()->json(["status" => false, "message" => "Category not found"], 404);
+            return response()->json(["status" => false, "message" => "Категория не найдёна"], 404);
         }
-
         return response()->json($category);
     }
 
@@ -70,14 +76,14 @@ class CategoryController extends Controller
         $category = Category::find($id);
 
         if (!$category) {
-            return response()->json(["status" => false, "message" => "Category not found"], 404);
+            return response()->json(["status" => false, "message" => "Категория не найдена"], 404);
         }
 
         $category->update([
             "name"=> $request->name,
         ]);
 
-        return response()->json(["status" => true, "message" => "Category updated", 'category' => $category->name]);
+        return response()->json(["status" => true, "message" => "Категория обновлена"]);
     }
 
     /**
@@ -91,21 +97,12 @@ class CategoryController extends Controller
         $category = Category::find($id);
 
         if (!$category) {
-            return response()->json(["status" => false, "message" => "Category has`t delete"]);
+            return response()->json(["status" => false, "message" => "Категория не найдена"]);
         }
 
         $category->delete();
 
-        return response()->json(["status" => true, "message" => "Category has be deleted"]);
-    }
-
-    public function categoryCount()
-    {
-        $categoryCount = Category::all()->count();
-        if (!$categoryCount) {
-            return response()->json(0);
-        }
-        return response()->json($categoryCount);
+        return response()->json(["status" => true, "message" => "Категория была удалена"]);
     }
 
 }

@@ -19,7 +19,7 @@ class Admin
     {
         $user = User::where('token', $request->bearerToken())->first();
         if ($user->status !== 2) {
-            return response()->json(["status" => false, "message" => "Access denied"], 403);
+            return response()->json(["status" => false, "message" => "Доступ запрещён"], 403);
         }
 
         return $next($request);

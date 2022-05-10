@@ -3,10 +3,8 @@
 namespace App\Http\Resources;
 
 use App\Models\Category;
-use App\Models\Post;
 use App\Models\User;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Str;
 
 class PostResource extends JsonResource
 {
@@ -18,10 +16,13 @@ class PostResource extends JsonResource
      */
     public function toArray($request)
     {
-
-        $post_slug = urldecode( Str::slug($this->title) );
-        $post_slug = preg_replace('/([^a-z\d\-\_])/', '', $post_slug);
-
+        /*$user = User::where('token', $request->bearerToken())->first();
+        dd($user);
+        if ($user->posts()->wherePivot('post_id', $this->id)->exists()) {
+            $statusBookmark = true;
+        }else {
+            $statusBookmark = false;
+        }*/
 
         return [
             "id" => $this->id,
@@ -29,13 +30,16 @@ class PostResource extends JsonResource
             "subtitle" => $this->subtitle,
             "body" => $this->body,
             "cover" => $this->cover,
-            "files" => json_decode($this->files, true),
+            "images" => json_decode($this->images, true),
+            "documents" => json_decode($this->documents, true),
             "date" => $this->date,
             "userName" => User::find($this->user_id)->name,
             "userLogin" => User::find($this->user_id)->login,
+            "userAvatar" => User::find($this->user_id)->avatar,
             "image" => User::find($this->user_id)->avatar,
             "viewed" => $this->viewed,
-            "slug" => $post_slug,
+            "slug" => $this->slug,
+            "category_id" => Category::find($this->category_id)->id,
             "category" => Category::find($this->category_id)->name,
         ];
     }
